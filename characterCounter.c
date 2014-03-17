@@ -28,8 +28,8 @@ struct data {
 const int SIZE = sizeof(struct data);
 
 void handle_error(int return_code, const char *msg);
-int create_sem(key_t key, const char *txt, const char *etxt);
-int create_shm(key_t key, const char *txt, const char *etxt);
+int create_sem(const char *txt, const char *etxt);
+int create_shm(const char *txt, const char *etxt);
 void show_shm_ctl(int shm_id, const char *txt);
 void *readFile(char *fileName, struct data *shm_data, int sem_id);
 void increaseCharCount(unsigned char c, struct data *shm_data, int sem_id);
@@ -76,15 +76,9 @@ int main(int argc, char *argv[]) {
 		exit(1);
 	}
 
-	FILE *f;
-	f = fopen("semref.dat", "w");
-	fwrite("X", 1, 1, f);
-	fclose(f);
+	printf("This programm use semaphore and shared memory, please cleanup after testing\n");
 
-	key_t sem_key = ftok("./semref.dat", 1);
-	handle_error(sem_key, "ftok for semaphore failed");
-
-	int sem_id = create_sem(sem_key, "create semaphore", "semget failed");
+	int sem_id = create_sem("create semaphore", "semget failed");
 	semid_for_cleanup = sem_id;
 
 	int i;
@@ -97,14 +91,7 @@ int main(int argc, char *argv[]) {
 
 	}
 
-	f = fopen("shmref.dat", "w");
-	fwrite("X", 1, 1, f);
-	fclose(f);
-
-	key_t shm_key = ftok("./shmref.dat", 1);
-	handle_error(shm_key, "ftok shared memory failed");
-
-	int shm_id = create_shm(shm_key, "create shared memory", "shmget failed");
+	int shm_id = create_shm("create shared memory", "shmget failed");
 	struct data *shm_data = (struct data *) shmat(shm_id, NULL, 0);
 
 	show_shm_ctl(shm_id, "Show shared memory information:");
@@ -140,6 +127,7 @@ void *readFile(char *fileName, struct data *shm_data, int sem_id)
 
 void increaseCharCount(unsigned char c, struct data *shm_data, int sem_id){
 	if(c > 126 ){
+		//ignore characters bigger than 126
 		return;
 	}
 	struct sembuf sema;
@@ -165,18 +153,41 @@ void increaseCharCount(unsigned char c, struct data *shm_data, int sem_id){
     handle_error(returnCode, "Could not release semaphore");
 }
 
-int create_sem(key_t key, const char *txt, const char *etxt){
-	int semaphore_id = semget(key, 250, IPC_CREAT | SEMPERM);
+int create_sem(const char *txt, const char *etxt){
+	FILE *f = fopen("semref.dat", "w");
+	fwrite("X", 1, 1, f);
+	fclose(f);
+
+	key_t sem_key = ftok("./semref.dat", 1);
+	handle_error(sem_key, "ftok for semaphore failed");
+
+	//only open 250 segments, because this is the maximum
+
+	//ipcs -ls
+	//------ Semaphore Limits --------
+	//max number of arrays = 128
+	//max semaphores per array = 250
+	//max semaphores system wide = 32000
+	//max ops per semop call = 32
+	//semaphore max value = 32767
+	int semaphore_id = semget(sem_key, 250, IPC_CREAT | SEMPERM);
 	handle_error(semaphore_id, etxt);
-	printf("%s: shm_id=%d key=%ld\n", txt, semaphore_id, (long) key);
+	printf("%s: shm_id=%d key=%ld\n", txt, semaphore_id, (long) sem_key);
 	return semaphore_id;
 }
 
-int create_shm(key_t key, const char *txt, const char *etxt) {
-  int shm_id = shmget(key, SIZE, IPC_CREAT | PERM);
-  handle_error(shm_id, etxt);
-  printf("%s: shm_id=%d key=%ld\n", txt, shm_id, (long) key);
-  return shm_id;
+int create_shm(const char *txt, const char *etxt) {
+	FILE *f = fopen("shmref.dat", "w");
+	fwrite("X", 1, 1, f);
+	fclose(f);
+
+	key_t shm_key = ftok("./shmref.dat", 1);
+	handle_error(shm_key, "ftok shared memory failed");
+
+	int shm_id = shmget(shm_key, SIZE, IPC_CREAT | PERM);
+	handle_error(shm_id, etxt);
+	printf("%s: shm_id=%d key=%ld\n", txt, shm_id, (long) shm_key);
+	return shm_id;
 }
 
 void show_shm_ctl(int shm_id, const char *txt) {
@@ -199,9 +210,9 @@ void printResultOfChar(unsigned char c, struct data *shm_data){
 	int currCounter = shm_data->counter[c];
 	if(currCounter > 0){
 		if(c < 33 || c > 126 ){
-			printf("Increase counter for special character (%d) and is now %d\n", c, c, currCounter);
+			printf("Counter for special character (%d) is now %d\n", c, currCounter);
 		} else {
-			printf("Increase counter for %c (%d) and is now %d\n", c, c, currCounter);
+			printf("Counter for %c (%d) is: %d\n", c, c, currCounter);
 		}
 	}
 }
