@@ -143,7 +143,7 @@ void *readFile(char *fileName)
 void increaseCharCount(unsigned char c){
 	int returnCode;
 	returnCode = pthread_mutex_lock(&mutex);
-	handle_thread_error(returnCode, "Could not lock mutex", PROCESS_EXIT);
+	handle_thread_error(returnCode, "Could not lock mutex", THREAD_EXIT);
 
     int currCounter = ++counter[c];
     //printf("Increase counter for %c (%d) and is now %d\n", c, c, currCounter);
@@ -152,8 +152,8 @@ void increaseCharCount(unsigned char c){
        tim.tv_nsec = 100000;
     nanosleep(&tim , &tim2);
 
-    pthread_mutex_unlock(&mutex);
-    handle_thread_error(returnCode, "Could not release mutex", PROCESS_EXIT);
+    returnCode = pthread_mutex_unlock(&mutex);
+    handle_thread_error(returnCode, "Could not release mutex", THREAD_EXIT);
 }
 
 void printResult(){
