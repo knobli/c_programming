@@ -37,6 +37,8 @@ void cleanup() {
 			pthread_join(threadId, NULL);
 		}
 	}
+	printf("Destroy mutex\n");
+	pthread_mutex_destroy(&mutex);
 }
 
 void exit_by_type(enum exit_type et) {
@@ -81,12 +83,6 @@ void handle_thread_error(int retcode, const char *msg, enum exit_type et) {
   }
 }
 
-/* helper function for dealing with errors */
-void handle_error(long return_code, const char *msg, enum exit_type et) {
-  int myerrno = errno;
-  handle_error_myerrno(return_code, myerrno, msg, et);
-}
-
 void *threadMethod(void* param) {
 	struct attr *p_atr = (struct attr* )param;
 
@@ -106,6 +102,9 @@ int main(int argc, char *argv[]) {
 		printf("Too many files, limit is 256\n");
 		exit(1);
 	}
+
+	printf("Init mutex\n");
+	pthread_mutex_init(&mutex, NULL);
 
 	int fileNumber;
 	struct attr atr;
